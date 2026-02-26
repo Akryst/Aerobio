@@ -4,8 +4,6 @@ A personal website with a Windows 7 Aero aesthetic.
 
 ![Preview](preview.png)
 
----
-
 ![Next.js](https://img.shields.io/badge/Next.js_15-000000?style=flat-square&logo=nextdotjs&logoColor=white)
 ![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=flat-square&logo=typescript&logoColor=white)
 ![React](https://img.shields.io/badge/React_19-61DAFB?style=flat-square&logo=react&logoColor=black)
@@ -80,7 +78,7 @@ pm2 start ecosystem.config.js
 - [7.css](https://github.com/nicepkg/7.css) — Windows 7 UI kit
 - [Lanyard](https://github.com/Phineas/lanyard) — Discord rich presence API
 - [Last.fm API](https://www.last.fm/api) — Music scrobbling data
-- [schuh.lol](https://schuh.lol/) — Inspo for vibes and design
+- [schuh.wtf](https://schuh.wtf/) — Inspo for vibes and design
 
 ---
 
