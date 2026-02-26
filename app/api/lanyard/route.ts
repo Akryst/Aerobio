@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { getLanyardData } from '@/lib/lanyard';
 
 export async function GET() {
-  const discordId = process.env.NEXT_PUBLIC_DISCORD_ID || '1368371401546928148';
+  const discordId = process.env.NEXT_PUBLIC_DISCORD_ID || '';
 
   try {
     const data = await getLanyardData(discordId);
