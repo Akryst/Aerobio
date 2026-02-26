@@ -2,7 +2,7 @@
 
 A personal website with a Windows 7 Aero aesthetic.
 
-![Preview](.github/preview.png)
+![Preview](preview.png)
 
 ---
 

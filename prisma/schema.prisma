@@ -1,0 +1,21 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Message {
+  id        String   @id
+  author    String
+  content   String
+  timestamp BigInt
+  likes     Int      @default(0)
+}
+
+model PostCooldown {
+  ip            String   @id
+  lastPostTime  BigInt
+}

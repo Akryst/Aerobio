@@ -1,0 +1,87 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --win7-bg: linear-gradient(180deg, #1e5799 0%, #207cca 50%, #2989d8 60%, #7db9e8 100%);
+    --win7-glass: rgba(155, 217, 255, 0.3);
+    --win7-glass-border: rgba(255, 255, 255, 0.5);
+    --win7-title-active: linear-gradient(180deg, #4a90c2 0%, #2d6da3 50%, #2567a3 100%);
+    --win7-title-inactive: linear-gradient(180deg, #8aa5c7 0%, #6b8eb5 50%, #6589b0 100%);
+  }
+
+  body {
+    background: linear-gradient(180deg, #1e5799 0%, #207cca 30%, #2989d8 60%, #7db9e8 100%);
+    background-attachment: fixed;
+    min-height: 100vh;
+    color: #1a1a1a;
+  }
+
+  ::-webkit-scrollbar {
+    width: 17px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: linear-gradient(90deg, #e0e0e0 0%, #f5f5f5 50%, #e0e0e0 100%);
+    border: 1px solid #a0a0a0;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: linear-gradient(90deg, #c8c8c8 0%, #f0f0f0 30%, #c8c8c8 100%);
+    border: 1px solid #808080;
+    border-radius: 0;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(90deg, #d0d0d0 0%, #ffffff 30%, #d0d0d0 100%);
+  }
+
+  ::-webkit-scrollbar-button:vertical:start:decrement,
+  ::-webkit-scrollbar-button:vertical:end:increment {
+    height: 17px;
+    background: linear-gradient(90deg, #e0e0e0 0%, #f5f5f5 50%, #e0e0e0 100%);
+    border: 1px solid #a0a0a0;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 10px;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 5px;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.3);
+    border-radius: 5px;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.5);
+  }
+}
+
+@layer components {
+  .glass-card {
+    background: rgba(255, 255, 255, 0.85);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.9);
+    box-shadow:
+      0 0 0 1px rgba(255, 255, 255, 0.4),
+      0 4px 24px rgba(0, 0, 0, 0.15),
+      inset 0 1px 0 rgba(255, 255, 255, 0.8);
+  }
+
+  .win7-now-playing {
+    background: linear-gradient(180deg, #50c050 0%, #30a030 100%);
+    animation: pulse-glow 2s ease-in-out infinite;
+  }
+
+  @keyframes pulse-glow {
+    0%, 100% { box-shadow: 0 0 4px rgba(80, 192, 80, 0.5); }
+    50% { box-shadow: 0 0 12px rgba(80, 192, 80, 0.8); }
+  }
+}
