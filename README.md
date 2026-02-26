@@ -24,8 +24,6 @@ A personal website with a Windows 7 Aero aesthetic.
 | About | A section about me |
 | Visitor counter | Tracks unique visits |
 
----
-
 ## Setup
 
 ```bash
@@ -37,8 +35,6 @@ npx prisma generate
 npx prisma db push
 npm run dev
 ```
-
----
 
 ## Environment Variables
 
@@ -54,13 +50,9 @@ NEXT_PUBLIC_DISCORD_ID=your-discord-id
 - **Discord ID** — Developer mode > right-click profile > Copy ID
 - **Admin secret** — Any random string, used to manage the guestbook
 
----
-
 ## Admin Mode
 
 Append `?admin=YOUR_SECRET` to the URL to enable guestbook moderation.
-
----
 
 ## Deployment
 
@@ -70,8 +62,6 @@ npm start
 # or
 pm2 start ecosystem.config.js
 ```
-
----
 
 ## Credits
 
