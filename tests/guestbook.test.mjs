@@ -60,13 +60,21 @@ test('guestbook rejects unauthorized deletes and deduplicates concurrent writes'
     const blank = await post('/api/messages', { content: '   ' });
     assert.equal(blank.status, 400);
 
+    const invalidWebsite = await post('/api/messages', { content: 'Test', website: 'javascript:alert(1)' });
+    assert.equal(invalidWebsite.status, 400);
+    const website = 'https://example.com/';
     const posts = await Promise.all([
-      post('/api/messages', { content: 'First signature' }, { 'X-Forwarded-For': '198.51.100.5' }),
-      post('/api/messages', { content: 'Second signature' }, { 'X-Forwarded-For': '198.51.100.6' }),
+      post('/api/messages', { content: 'First signature', website }, { 'X-Forwarded-For': '198.51.100.5' }),
+      post('/api/messages', { content: 'Second signature', website }, { 'X-Forwarded-For': '198.51.100.6' }),
     ]);
     assert.deepEqual(posts.map((response) => response.status).sort(), [200, 429]);
     const retryAfter = Number(posts.find((response) => response.status === 429).headers.get('Retry-After'));
     assert.ok(retryAfter > 0 && retryAfter <= 1800);
+
+    const anonymous = await post('/api/messages', {
+      anonymous: true, author: 'Private nickname', content: 'Anonymous signature', website,
+    }, { 'X-Real-IP': '198.51.100.7' });
+    assert.equal(anonymous.status, 200);
 
     const votes = await Promise.all([
       post('/api/messages/like', { messageId: 'legacy' }),
@@ -82,7 +90,12 @@ test('guestbook rejects unauthorized deletes and deduplicates concurrent writes'
     assert.equal(authorized.status, 200);
 
     const remaining = await fetch(origin + '/api/messages');
-    assert.equal((await remaining.json()).messages.length, 1);
+    const { messages } = await remaining.json();
+    assert.equal(messages.length, 2);
+    const anonymousMessage = messages.find((message) => message.content === 'Anonymous signature');
+    assert.equal(anonymousMessage.author, 'Anonymous');
+    assert.equal(anonymousMessage.website, null);
+    assert.equal(messages.find((message) => message !== anonymousMessage).website, website);
   } finally {
     if (server && server.exitCode === null && server.signalCode === null) {
       const exited = once(server, 'exit');

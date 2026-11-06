@@ -79,10 +79,6 @@ export function getAvatarDecorationUrl(asset: string): string {
   return `https://cdn.discordapp.com/avatar-decoration-presets/${asset}.png`;
 }
 
-export function getDiscordBannerUrl(userId: string, bannerHash: string, size: number = 600): string {
-  return `https://cdn.discordapp.com/banners/${userId}/${bannerHash}.${bannerHash.startsWith('a_') ? 'gif' : 'png'}?size=${size}`;
-}
-
 export function getStatusColor(status: 'online' | 'idle' | 'dnd' | 'offline'): string {
   const colors = {
     online: '#23a559',

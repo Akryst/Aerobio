@@ -10,6 +10,9 @@ interface Message {
   content: string;
   timestamp: number;
   likes: number;
+  ownerLiked: boolean;
+  reply: string | null;
+  website: string | null;
 }
 
 export default function AnonymousWall({ moderation = false }: { moderation?: boolean }) {
@@ -66,14 +69,19 @@ export default function AnonymousWall({ moderation = false }: { moderation?: boo
     event.preventDefault();
     if (!message.trim() || remaining || posting) return;
     const form = event.currentTarget;
-    const nickname = new FormData(form).get('nickname');
+    const fields = new FormData(form);
     setPosting(true);
     setNotice(null);
     try {
       const response = await fetch('/api/messages', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ author: anonymous ? '' : nickname ?? '', content: message }),
+        body: JSON.stringify({
+          anonymous,
+          author: fields.get('nickname') ?? '',
+          content: message,
+          website: fields.get('website'),
+        }),
       });
       const data = await response.json();
       if (response.status === 429) startCooldown(Number(response.headers.get('Retry-After')));
@@ -170,10 +178,17 @@ export default function AnonymousWall({ moderation = false }: { moderation?: boo
               <label htmlFor="anonymous-check">Post anonymously</label>
             </div>
             {!anonymous && (
-              <label className="block">
-                Nickname <span className="text-slate-600">(optional)</span>
-                <input name="nickname" type="text" maxLength={20} className="mt-1 block w-full" />
-              </label>
+              <>
+                <label className="block">
+                  Nickname <span className="text-slate-600">(optional)</span>
+                  <input name="nickname" type="text" maxLength={20} className="mt-1 block w-full" />
+                </label>
+                <label className="block">
+                  Website <span className="text-slate-600">(optional)</span>
+                  <input name="website" type="url" maxLength={2048} placeholder="https://example.com"
+                    className="mt-1 block w-full" />
+                </label>
+              </>
             )}
             <label className="block">
               Message
@@ -204,25 +219,39 @@ export default function AnonymousWall({ moderation = false }: { moderation?: boo
             {moderation ? 'No signatures yet.' : 'No signatures yet. Leave the first note.'}
           </p>
         ) : (
-          <ol className="max-h-72 space-y-2 overflow-y-auto scrollbar-thin pr-1">
+          <ol className="has-scrollbar max-h-72 space-y-1 overflow-y-auto pr-1">
             {messages.map((item) => (
-              <li key={item.id} className="border border-slate-200 bg-white p-3">
-                <div className="mb-1 flex flex-wrap items-baseline justify-between gap-x-2">
+              <li key={item.id} className="border border-slate-200 bg-white px-2 py-1">
+                <div className="flex flex-wrap items-center justify-between gap-x-2">
                   <strong className="min-w-0 break-all text-blue-900">{item.author}</strong>
-                  <time className="text-slate-600" dateTime={new Date(item.timestamp).toISOString()}>
-                    {new Date(item.timestamp).toLocaleDateString()}
-                  </time>
+                  <div className="ml-auto flex items-center gap-1.5">
+                    <time className="whitespace-nowrap text-slate-600" dateTime={new Date(item.timestamp).toISOString()}>
+                      {new Date(item.timestamp).toLocaleDateString()}
+                    </time>
+                    {moderation ? (
+                      <button type="button" disabled={pending} onClick={() => setDeleteId(item.id)}>Delete…</button>
+                    ) : (
+                      <button type="button" className="guestbook-like" disabled={pending || liked.has(item.id)}
+                        onClick={() => likeMessage(item.id)}
+                        aria-label={`${liked.has(item.id) ? 'Liked' : 'Like message'} · ${item.likes} likes`}>
+                        {liked.has(item.id) ? '♥' : '♡'} {item.likes}
+                      </button>
+                    )}
+                  </div>
                 </div>
-                <p className="whitespace-pre-wrap break-words text-sm leading-relaxed text-slate-800">{item.content}</p>
-                <div className="mt-2 flex gap-2">
-                  {moderation ? (
-                    <button type="button" disabled={pending} onClick={() => setDeleteId(item.id)}>Delete…</button>
-                  ) : (
-                    <button type="button" disabled={pending || liked.has(item.id)}
-                      onClick={() => likeMessage(item.id)}
-                      aria-label={`${liked.has(item.id) ? 'Liked' : 'Like message'} · ${item.likes} likes`}>
-                      {liked.has(item.id) ? '♥' : '♡'} {item.likes}
-                    </button>
+                <p className="whitespace-pre-wrap break-words text-sm leading-snug text-slate-800">{item.content}</p>
+                {item.reply && (
+                  <div className="mt-1 border-l-2 border-sky-300 bg-sky-50 px-2 py-1">
+                    <strong className="text-blue-900">Reply from akryst</strong>
+                    <p className="whitespace-pre-wrap break-words text-slate-800">{item.reply}</p>
+                  </div>
+                )}
+                <div className="mt-1 flex flex-wrap items-center gap-x-2 empty:hidden">
+                  {item.ownerLiked && <span className="text-slate-700">Liked by akryst</span>}
+                  {item.website && /^https?:\/\//i.test(item.website) && (
+                    <a href={item.website} target="_blank" rel="noopener noreferrer ugc">
+                      Website
+                    </a>
                   )}
                 </div>
                 {deleteId === item.id && (

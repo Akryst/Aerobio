@@ -6,7 +6,6 @@ import type { LanyardData } from '@/types/lanyard';
 import {
   getDiscordAvatarUrl,
   getAvatarDecorationUrl,
-  getDiscordBannerUrl,
   getStatusColor,
   getStatusLabel,
   subscribeToLanyard,
@@ -24,7 +23,9 @@ export default function ProfileCard() {
   const [status, setStatus] = useState<'loading' | 'live' | 'unavailable' | 'unconfigured'>('loading');
   const [visitors, setVisitors] = useState<number | null>(null);
   const [currentTime, setCurrentTime] = useState('');
+  const [remoteBanner, setRemoteBanner] = useState<string | null>(null);
   const [brokenBanner, setBrokenBanner] = useState('');
+  const [avatarResult, setAvatarResult] = useState<{ url: string; loaded: boolean } | null>(null);
 
   useEffect(() => {
     const updateTime = () => setCurrentTime(new Date().toLocaleTimeString([], {
@@ -50,6 +51,7 @@ export default function ProfileCard() {
         const { discordId } = await response.json();
         if (typeof discordId !== 'string') throw new Error();
         if (!controller.signal.aborted) {
+          setRemoteBanner(`https://dcdn.dstn.to/banners/${encodeURIComponent(discordId)}?size=1024`);
           unsubscribe = subscribeToLanyard(discordId, (presence) => {
             setLanyard(presence);
             setStatus('live');
@@ -79,10 +81,11 @@ export default function ProfileCard() {
 
   const user = lanyard?.discord_user;
   const avatarUrl = user?.avatar ? getDiscordAvatarUrl(user.id, user.avatar, 256) : null;
+  const avatarLoad = avatarResult?.url === avatarUrl ? avatarResult : null;
+  const avatarLoading = status === 'loading' || Boolean(avatarUrl && !avatarLoad);
   const decorationUrl = user?.avatar_decoration_data
     ? getAvatarDecorationUrl(user.avatar_decoration_data.asset)
     : null;
-  const remoteBanner = user?.banner ? getDiscordBannerUrl(user.id, user.banner) : null;
   const banner = remoteBanner && remoteBanner !== brokenBanner ? remoteBanner : '/banner.png';
   const discordStatus = status === 'live' ? lanyard?.discord_status : undefined;
   const statusLabel = discordStatus ? getStatusLabel(discordStatus) : {
@@ -106,10 +109,18 @@ export default function ProfileCard() {
           </div>
           <div className="relative mb-2 flex flex-wrap items-end justify-between gap-2">
             <div className="relative -mt-12 grid h-20 w-20 shrink-0 place-items-center rounded-full border-4 border-white bg-blue-100 text-2xl font-semibold text-blue-900 shadow-sm">
-              {avatarUrl ? (
-                <Image src={avatarUrl} alt="" fill className="rounded-full object-cover" unoptimized />
-              ) : 'A'}
-              {decorationUrl && <Image src={decorationUrl} alt="" fill className="scale-125 object-contain" unoptimized />}
+              {avatarUrl && avatarLoad?.loaded !== false && (
+                <Image key={avatarUrl} src={avatarUrl} alt="" fill unoptimized
+                  className={`rounded-full object-cover ${avatarLoad?.loaded ? '' : 'opacity-0'}`}
+                  onLoad={() => setAvatarResult({ url: avatarUrl, loaded: true })}
+                  onError={() => setAvatarResult({ url: avatarUrl, loaded: false })} />
+              )}
+              {avatarLoading ? (
+                <span className="spinner motion-safe:animate-spin" role="status" aria-label="Loading avatar" />
+              ) : !avatarLoad?.loaded && 'A'}
+              {avatarLoad?.loaded && decorationUrl && (
+                <Image src={decorationUrl} alt="" fill className="scale-125 object-contain" unoptimized />
+              )}
             </div>
             <span className="inline-flex items-center gap-1.5 border border-slate-300 bg-white px-2 py-1 text-slate-800">
               <span aria-hidden="true" className="h-2 w-2 rounded-full"

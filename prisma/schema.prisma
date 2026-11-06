@@ -13,6 +13,9 @@ model Message {
   content   String
   timestamp BigInt
   likes     Int      @default(0)
+  ownerLiked Boolean @default(false)
+  reply     String?
+  website   String?
   votes     MessageLike[]
 }
 

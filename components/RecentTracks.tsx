@@ -49,7 +49,7 @@ export default function RecentTracks() {
         <p className="p-6 text-center text-slate-700">No recent tracks yet.</p>
       )}
       {!!tracks?.length && (
-        <ol className="max-h-[360px] overflow-y-auto scrollbar-thin border border-slate-200 bg-white">
+        <ol className="has-scrollbar max-h-[360px] overflow-y-auto border border-slate-200 bg-white">
           {tracks.map((track, index) => (
             <li key={`${track.artist}-${track.name}-${track.timestamp ?? index}`}>
               <TrackCard track={track} stale={failed} />

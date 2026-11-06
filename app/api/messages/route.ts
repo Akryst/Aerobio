@@ -25,13 +25,22 @@ export async function GET() {
 export async function POST(request: Request) {
   const body = await request.json().catch(() => null);
   const content = typeof body?.content === 'string' ? body.content.trim() : '';
-  const author = typeof body?.author === 'string' ? body.author.trim() : '';
+  const anonymous = body?.anonymous === true;
+  const nickname = anonymous ? undefined : body?.author;
+  const author = typeof nickname === 'string' ? nickname.trim() : '';
 
   if (!content || content.length > 200) {
     return NextResponse.json({ error: 'Enter a message between 1 and 200 characters.' }, { status: 400 });
   }
-  if ((body.author !== undefined && typeof body.author !== 'string') || author.length > 20) {
+  if ((nickname !== undefined && typeof nickname !== 'string') || author.length > 20) {
     return NextResponse.json({ error: 'Use a nickname of up to 20 characters.' }, { status: 400 });
+  }
+  const submittedWebsite = anonymous ? null : body.website;
+  const website = typeof submittedWebsite === 'string' ? submittedWebsite.trim() : '';
+  const url = website.length <= 2048 && URL.canParse(website) ? new URL(website) : null;
+  if ((submittedWebsite != null && typeof submittedWebsite !== 'string') ||
+      (website && (!url || !/^https?:\/\//i.test(website) || url.username || url.password || url.href.length > 2048))) {
+    return NextResponse.json({ error: 'Enter a valid http:// or https:// website.' }, { status: 400 });
   }
 
   try {
@@ -50,7 +59,7 @@ export async function POST(request: Request) {
         return { retryAfter: Math.max(1, Math.ceil(remaining)) };
       }
       const message = await tx.message.create({
-        data: { id: randomUUID(), author: author || 'Anonymous', content, timestamp: now },
+        data: { id: randomUUID(), author: author || 'Anonymous', content, timestamp: now, website: url?.href ?? null },
       });
       return { message };
     });
