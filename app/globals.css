@@ -3,17 +3,10 @@
 @tailwind utilities;
 
 @layer base {
-  :root {
-    --win7-bg: linear-gradient(180deg, #1e5799 0%, #207cca 50%, #2989d8 60%, #7db9e8 100%);
-    --win7-glass: rgba(155, 217, 255, 0.3);
-    --win7-glass-border: rgba(255, 255, 255, 0.5);
-    --win7-title-active: linear-gradient(180deg, #4a90c2 0%, #2d6da3 50%, #2567a3 100%);
-    --win7-title-inactive: linear-gradient(180deg, #8aa5c7 0%, #6b8eb5 50%, #6589b0 100%);
-  }
-
   body {
-    background: linear-gradient(180deg, #1e5799 0%, #207cca 30%, #2989d8 60%, #7db9e8 100%);
-    background-attachment: fixed;
+    background:
+      radial-gradient(ellipse at 18% 0%, #91d8ed 0, transparent 50%),
+      linear-gradient(150deg, #17497e 15%, #257ab5 65%, #71b6d7);
     min-height: 100vh;
     color: #1a1a1a;
   }
@@ -64,24 +57,39 @@
 }
 
 @layer components {
-  .glass-card {
-    background: rgba(255, 255, 255, 0.85);
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
-    border: 1px solid rgba(255, 255, 255, 0.9);
-    box-shadow:
-      0 0 0 1px rgba(255, 255, 255, 0.4),
-      0 4px 24px rgba(0, 0, 0, 0.15),
-      inset 0 1px 0 rgba(255, 255, 255, 0.8);
+  .desktop-header {
+    border: 1px solid #d7f3ff;
+    border-radius: 7px;
+    background: linear-gradient(180deg, #f4fcffed, #b5dff3e0);
+    box-shadow: 0 3px 14px #0b315b40, inset 0 0 0 1px #ffffff9e;
   }
 
-  .win7-now-playing {
-    background: linear-gradient(180deg, #50c050 0%, #30a030 100%);
-    animation: pulse-glow 2s ease-in-out infinite;
+  .aero-link {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 32px;
+    padding: 0.25rem 0.75rem;
+    border: 1px solid #819caf;
+    border-radius: 3px;
+    background: linear-gradient(#fff, #e8f3fa 50%, #d0e4f3 51%, #e9f7ff);
+    color: #123956;
+    font-weight: 600;
+    text-decoration: none;
   }
 
-  @keyframes pulse-glow {
-    0%, 100% { box-shadow: 0 0 4px rgba(80, 192, 80, 0.5); }
-    50% { box-shadow: 0 0 12px rgba(80, 192, 80, 0.8); }
+  .aero-link:hover {
+    background: #def2ff;
+    border-color: #387bae;
   }
+}
+
+#guestbook .window-body button {
+  min-height: 32px;
+  padding-inline: 0.625rem;
+}
+
+:is(a, button, input, textarea, summary):focus-visible {
+  outline: 2px solid #155f99;
+  outline-offset: 2px;
 }

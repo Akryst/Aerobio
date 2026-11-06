@@ -1,106 +1,39 @@
-'use client';
-
-import { motion } from 'framer-motion';
 import Image from 'next/image';
-import { Track } from '@/types/lastfm';
-import { formatTimeAgo } from '@/lib/lastfm';
+import type { Track } from '@/types/lastfm';
 
-interface TrackCardProps {
-  track: Track;
-  index: number;
+function formatTimeAgo(timestamp: string) {
+  const minutes = Math.max(0, Math.floor((Date.now() - Number(timestamp) * 1000) / 60000));
+  if (!Number.isFinite(minutes)) return '';
+  if (minutes < 1) return 'Just now';
+  if (minutes < 60) return `${minutes}m ago`;
+  if (minutes < 1440) return `${Math.floor(minutes / 60)}h ago`;
+  return `${Math.floor(minutes / 1440)}d ago`;
 }
 
-export default function TrackCard({ track, index }: TrackCardProps) {
+export default function TrackCard({ track, stale }: { track: Track; stale: boolean }) {
+  const playing = track.isNowPlaying && !stale;
+
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, scale: 0.95 }}
-      transition={{ delay: index * 0.05, duration: 0.3 }}
-      whileHover={{ scale: 1.01 }}
-      className="group relative overflow-hidden"
-    >
-      <a
-        href={track.url}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="relative z-10 flex items-center gap-4 bg-white hover:bg-blue-50 p-3 border border-gray-200 hover:border-blue-300 transition-all duration-200 no-underline"
-      >
-        {/* Album Art */}
-        <div className="relative w-14 h-14 flex-shrink-0 overflow-hidden border border-gray-300 shadow-sm">
-          {track.image ? (
-            <Image
-              src={track.image}
-              alt={`${track.name} album art`}
-              fill
-              className="object-cover group-hover:scale-105 transition-transform duration-300"
-              unoptimized
-            />
-          ) : (
-            <div className="w-full h-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center">
-              <span className="text-xl">🎵</span>
-            </div>
-          )}
-          
-          {track.isNowPlaying && (
-            <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
-              <motion.div
-                animate={{ scale: [1, 1.1, 1] }}
-                transition={{ duration: 1, repeat: Infinity }}
-                className="flex items-center gap-0.5"
-              >
-                <div className="w-1 h-3 bg-green-400 rounded-full animate-pulse" />
-                <div className="w-1 h-4 bg-green-400 rounded-full animate-pulse" style={{ animationDelay: '0.2s' }} />
-                <div className="w-1 h-3 bg-green-400 rounded-full animate-pulse" style={{ animationDelay: '0.4s' }} />
-              </motion.div>
-            </div>
-          )}
-        </div>
-
-        {/* Track Info */}
-        <div className="flex-1 min-w-0">
-          <h3 className="font-semibold text-gray-900 truncate text-sm group-hover:text-blue-600 transition-colors">
-            {track.name}
-          </h3>
-          <p className="text-xs text-gray-600 truncate mt-0.5">{track.artist}</p>
-          {track.album && (
-            <p className="text-xs text-gray-400 truncate">{track.album}</p>
-          )}
-        </div>
-
-        {/* Time Ago / Now Playing */}
-        <div className="text-right flex-shrink-0">
-          {track.isNowPlaying ? (
-            <div className="flex flex-col items-end">
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-green-100 text-green-700 text-xs font-medium border border-green-300">
-                <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></span>
-                Playing
-              </span>
-            </div>
-          ) : (
-            <span className="text-xs text-gray-500">
-              {formatTimeAgo(track.timestamp)}
-            </span>
-          )}
-        </div>
-
-        {/* External Link Icon */}
-        <div className="flex-shrink-0 text-gray-400 group-hover:text-blue-500 transition-colors">
-          <svg
-            className="w-4 h-4"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
-            />
-          </svg>
-        </div>
-      </a>
-    </motion.div>
+    <a href={track.url} target="_blank" rel="noopener noreferrer"
+      className={`flex items-center gap-3 border-b border-slate-200 p-2 text-slate-900 no-underline hover:bg-blue-50 focus-visible:outline-offset-[-2px] sm:p-3 ${playing ? 'bg-sky-50' : 'bg-white'}`}>
+      <div className="relative h-10 w-10 shrink-0 overflow-hidden border border-slate-300 sm:h-12 sm:w-12">
+        {track.image ? (
+          <Image src={track.image} alt="" fill className="object-cover" unoptimized />
+        ) : (
+          <span aria-hidden="true" className="grid h-full place-items-center bg-blue-100 text-blue-900">♪</span>
+        )}
+      </div>
+      <div className="min-w-0 flex-1">
+        <h3 className="truncate text-sm font-semibold" title={track.name}>{track.name}</h3>
+        <p className="truncate text-xs text-slate-700">{track.artist}{track.album && ` · ${track.album}`}</p>
+      </div>
+      {playing ? (
+        <span className="shrink-0 border border-emerald-300 bg-emerald-100 px-1.5 py-0.5 text-emerald-900">
+          ▶ Playing
+        </span>
+      ) : track.timestamp && (
+        <span className="shrink-0 text-slate-600">{formatTimeAgo(track.timestamp)}</span>
+      )}
+    </a>
   );
 }

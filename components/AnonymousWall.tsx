@@ -1,7 +1,8 @@
 'use client';
 
-import { motion } from 'framer-motion';
-import { useState, useEffect } from 'react';
+import { useCallback, useEffect, useState } from 'react';
+import type { FormEvent } from 'react';
+import WindowTitle from './WindowTitle';
 
 interface Message {
   id: string;
@@ -11,346 +12,242 @@ interface Message {
   likes: number;
 }
 
-const COLORS = [
-  'text-red-600',
-  'text-orange-600', 
-  'text-yellow-600',
-  'text-green-600',
-  'text-blue-600',
-  'text-indigo-600',
-  'text-purple-600',
-  'text-pink-600',
-  'text-cyan-600',
-  'text-teal-600',
-];
-
-function hashCode(str: string): number {
-  let hash = 0;
-  for (let i = 0; i < str.length; i++) {
-    hash = str.charCodeAt(i) + ((hash << 5) - hash);
-  }
-  return Math.abs(hash);
-}
-
-function getColorForUser(author: string): string {
-  return COLORS[hashCode(author) % COLORS.length];
-}
-
-function getRelativeTime(timestamp: number): string {
-  const now = Date.now();
-  const diff = now - timestamp;
-  const seconds = Math.floor(diff / 1000);
-  const minutes = Math.floor(seconds / 60);
-  const hours = Math.floor(minutes / 60);
-  const days = Math.floor(hours / 24);
-
-  if (days > 0) return `hace ${days} día${days > 1 ? 's' : ''}`;
-  if (hours > 0) return `hace ${hours} hora${hours > 1 ? 's' : ''}`;
-  if (minutes > 0) return `hace ${minutes} minuto${minutes > 1 ? 's' : ''}`;
-  return 'justo ahora';
-}
-
-export default function AnonymousWall() {
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [nickname, setNickname] = useState('');
-  const [message, setMessage] = useState('');
-  const [isAnonymous, setIsAnonymous] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [canPost, setCanPost] = useState(true);
-  const [timeUntilNextPost, setTimeUntilNextPost] = useState('');
-  const [likedMessages, setLikedMessages] = useState<Set<string>>(new Set());
+export default function AnonymousWall({ moderation = false }: { moderation?: boolean }) {
+  const [messages, setMessages] = useState<Message[] | null>(null);
+  const [loadError, setLoadError] = useState(false);
   const [showForm, setShowForm] = useState(false);
-  const [isAdmin, setIsAdmin] = useState(false);
+  const [message, setMessage] = useState('');
+  const [anonymous, setAnonymous] = useState(false);
+  const [posting, setPosting] = useState(false);
+  const [notice, setNotice] = useState<{ text: string; error?: boolean } | null>(null);
+  const [deadline, setDeadline] = useState(0);
+  const [remaining, setRemaining] = useState(0);
+  const [liked, setLiked] = useState<Set<string>>(new Set());
+  const [pending, setPending] = useState(false);
+  const [deleteId, setDeleteId] = useState<string | null>(null);
 
-  useEffect(() => {
-    fetchMessages();
-    checkPostCooldown();
-    
-    // Load liked messages from localStorage
-    const liked = localStorage.getItem('likedMessages');
-    if (liked) {
-      setLikedMessages(new Set(JSON.parse(liked)));
-    }
-
-    // Check for admin mode
-    const urlParams = new URLSearchParams(window.location.search);
-    const adminKey = urlParams.get('admin');
-    if (adminKey) {
-      localStorage.setItem('adminSecret', adminKey);
-      setIsAdmin(true);
-    } else {
-      const storedSecret = localStorage.getItem('adminSecret');
-      if (storedSecret) {
-        setIsAdmin(true);
-      }
-    }
+  const loadMessages = useCallback(() => {
+    return fetch('/api/messages')
+      .then((response) => {
+        if (!response.ok) throw new Error();
+        return response.json();
+      })
+      .then((data) => setMessages(data.messages))
+      .catch(() => setLoadError(true));
   }, []);
 
   useEffect(() => {
-    const interval = setInterval(() => {
-      checkPostCooldown();
-    }, 1000);
-    return () => clearInterval(interval);
-  }, []);
-
-  const checkPostCooldown = () => {
-    const lastPost = localStorage.getItem('lastMessagePost');
-    if (!lastPost) {
-      setCanPost(true);
-      return;
-    }
-
-    const lastPostTime = parseInt(lastPost);
-    const now = Date.now();
-    const diff = now - lastPostTime;
-    const cooldown = 30 * 60 * 1000; // 30 minutes
-
-    if (diff < cooldown) {
-      setCanPost(false);
-      const remaining = cooldown - diff;
-      const hours = Math.floor(remaining / (60 * 60 * 1000));
-      const minutes = Math.floor((remaining % (60 * 60 * 1000)) / (60 * 1000));
-      setTimeUntilNextPost(`${hours}h ${minutes}m`);
-    } else {
-      setCanPost(true);
-      setTimeUntilNextPost('');
-    }
-  };
-
-  const fetchMessages = async () => {
+    // Remove credentials saved by older versions of the guestbook.
     try {
-      const response = await fetch('/api/messages');
-      const data = await response.json();
-      setMessages(data.messages || []);
-    } catch (err) {
-      console.error('Error fetching messages:', err);
+      localStorage.removeItem('adminSecret');
+    } catch {
+      // The guestbook can run without browser storage.
     }
-  };
+    void loadMessages();
+  }, [loadMessages]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!message.trim() || !canPost) return;
+  useEffect(() => {
+    if (!deadline) return;
+    const timer = window.setInterval(() => {
+      const seconds = Math.max(0, Math.ceil((deadline - Date.now()) / 1000));
+      setRemaining(seconds);
+      if (!seconds) window.clearInterval(timer);
+    }, 1000);
+    return () => window.clearInterval(timer);
+  }, [deadline]);
 
-    setIsSubmitting(true);
+  function startCooldown(seconds: number) {
+    if (!Number.isFinite(seconds) || seconds <= 0) return;
+    setRemaining(seconds);
+    setDeadline(Date.now() + seconds * 1000);
+  }
+
+  async function postMessage(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!message.trim() || remaining || posting) return;
+    const form = event.currentTarget;
+    const nickname = new FormData(form).get('nickname');
+    setPosting(true);
+    setNotice(null);
     try {
       const response = await fetch('/api/messages', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          author: isAnonymous ? 'Anonymous' : (nickname.trim() || 'Anonymous'),
-          content: message.trim(),
-        }),
+        body: JSON.stringify({ author: anonymous ? '' : nickname ?? '', content: message }),
       });
-
       const data = await response.json();
+      if (response.status === 429) startCooldown(Number(response.headers.get('Retry-After')));
+      if (!response.ok) throw new Error(data.error ?? 'Could not post your message.');
 
-      if (response.status === 429) {
-        // Cooldown enforced by server
-        localStorage.setItem('lastMessagePost', Date.now().toString());
-        checkPostCooldown();
-        alert(data.error || 'Please wait before posting again');
-        return;
-      }
-
-      if (response.ok) {
-        setMessage('');
-        setNickname('');
-        localStorage.setItem('lastMessagePost', Date.now().toString());
-        checkPostCooldown();
-        fetchMessages();
-      }
-    } catch (err) {
-      console.error('Error posting message:', err);
+      startCooldown(data.cooldownSeconds);
+      setMessages((current) => [data.message, ...(current ?? [])].slice(0, 100));
+      setLoadError(false);
+      setMessage('');
+      setShowForm(false);
+      setNotice({ text: 'Your message was posted.' });
+    } catch (error) {
+      setNotice({ text: error instanceof Error ? error.message : 'Could not post your message.', error: true });
     } finally {
-      setIsSubmitting(false);
+      setPosting(false);
     }
-  };
+  }
 
-  const handleLike = async (messageId: string) => {
-    if (likedMessages.has(messageId)) return;
-
+  async function likeMessage(id: string) {
+    if (liked.has(id) || pending) return;
+    setPending(true);
+    setNotice(null);
     try {
       const response = await fetch('/api/messages/like', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messageId }),
+        body: JSON.stringify({ messageId: id }),
       });
-
-      if (response.ok) {
-        const newLiked = new Set(likedMessages);
-        newLiked.add(messageId);
-        setLikedMessages(newLiked);
-        localStorage.setItem('likedMessages', JSON.stringify(Array.from(newLiked)));
-        fetchMessages();
-      }
-    } catch (err) {
-      console.error('Error liking message:', err);
+      if (!response.ok) throw new Error();
+      const { likes } = await response.json();
+      setMessages((current) => current?.map((item) => item.id === id ? { ...item, likes } : item) ?? null);
+      setLiked((current) => new Set([...current, id]));
+    } catch {
+      setNotice({ text: 'Could not save your like. Try again.', error: true });
+    } finally {
+      setPending(false);
     }
-  };
+  }
 
-  const handleDelete = async (messageId: string) => {
-    if (!isAdmin) return;
-    if (!confirm('¿Estás seguro de que quieres eliminar este mensaje?')) return;
-
+  async function deleteMessage(event: FormEvent<HTMLFormElement>, id: string) {
+    event.preventDefault();
+    if (pending) return;
+    const form = event.currentTarget;
+    const secret = String(new FormData(form).get('secret') ?? '').trim();
+    form.reset();
+    setPending(true);
+    setNotice(null);
     try {
-      const secret = localStorage.getItem('adminSecret');
-      const response = await fetch(`/api/messages/${messageId}?secret=${secret}`, {
+      const response = await fetch(`/api/messages/${encodeURIComponent(id)}`, {
         method: 'DELETE',
+        headers: { Authorization: `Bearer ${secret}` },
       });
-
-      if (response.ok) {
-        fetchMessages();
-      } else {
-        alert('Error al eliminar el mensaje');
-      }
-    } catch (err) {
-      console.error('Error deleting message:', err);
+      if (response.status === 401) throw new Error('Moderation key rejected.');
+      if (!response.ok && response.status !== 404) throw new Error('Could not delete the message.');
+      setMessages((current) => current?.filter((item) => item.id !== id) ?? null);
+      setDeleteId(null);
+      setNotice({ text: 'Message removed.' });
+    } catch (error) {
+      setNotice({ text: error instanceof Error ? error.message : 'Could not delete the message.', error: true });
+    } finally {
+      setPending(false);
     }
-  };
+  }
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5 }}
-      className="window active glass"
-    >
-      <div className="title-bar">
-        <span className="title-bar-text">💬 Guestbook</span>
-        <div className="title-bar-controls">
-          <button aria-label="Minimize"></button>
-          <button aria-label="Maximize"></button>
-          <button aria-label="Close"></button>
-        </div>
-      </div>
-
-      <div className="window-body">
-        {/* New message button */}
-        {canPost && (
-          <div className="mb-3">
-            <button
-              onClick={() => setShowForm(!showForm)}
-              className="px-3 py-1"
-            >
-              {showForm ? 'Cancel' : 'New Message'}
-            </button>
-          </div>
+    <section id="guestbook" aria-labelledby="guestbook-title" className="window active glass">
+      <WindowTitle id="guestbook-title" icon="guestbook">
+        {moderation ? 'Guestbook moderation' : 'Guestbook'}
+      </WindowTitle>
+      <div className="window-body space-y-3 !p-2">
+        {!moderation && (
+          <button type="button" aria-expanded={showForm} disabled={messages === null || loadError}
+            onClick={() => setShowForm(!showForm)}>
+            {showForm ? 'Cancel' : 'Sign the guestbook'}
+          </button>
         )}
-        
-        {/* Form - colapsable */}
-        {canPost && showForm && (
-          <motion.form
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: 'auto' }}
-            exit={{ opacity: 0, height: 0 }}
-            onSubmit={handleSubmit}
-            className="space-y-2 mb-3 p-3 bg-gray-50 border border-gray-200"
-          >
-          <div className="flex items-center gap-3">
+
+        {notice && (
+          <p role={notice.error ? 'alert' : 'status'} className={notice.error ? 'text-red-800' : 'text-green-800'}>
+            {notice.text}
+          </p>
+        )}
+        {remaining > 0 && (
+          <p className="border border-amber-200 bg-amber-50 px-2 py-1.5 text-amber-900">
+            Next post in {Math.floor(remaining / 60)}:{String(remaining % 60).padStart(2, '0')}
+          </p>
+        )}
+
+        {showForm && (
+          <form onSubmit={postMessage} className="space-y-2 border border-slate-200 bg-slate-50 p-3">
             <div className="field-row">
-              <input
-                type="checkbox"
-                id="anonymous-check"
-                checked={isAnonymous}
-                onChange={(e) => setIsAnonymous(e.target.checked)}
-              />
-              <label htmlFor="anonymous-check">Anonymous</label>
+              <input type="checkbox" id="anonymous-check" checked={anonymous}
+                onChange={(event) => setAnonymous(event.target.checked)} />
+              <label htmlFor="anonymous-check">Post anonymously</label>
             </div>
-            {!isAnonymous && (
-              <input
-                type="text"
-                placeholder="Nickname"
-                value={nickname}
-                onChange={(e) => setNickname(e.target.value)}
-                maxLength={20}
-              />
+            {!anonymous && (
+              <label className="block">
+                Nickname <span className="text-slate-600">(optional)</span>
+                <input name="nickname" type="text" maxLength={20} className="mt-1 block w-full" />
+              </label>
             )}
-          </div>
-
-          <textarea
-            placeholder="Leave a message..."
-            value={message}
-            onChange={(e) => setMessage(e.target.value)}
-            maxLength={200}
-            rows={2}
-            className="w-full resize-none"
-          />
-
-          <div className="flex justify-between items-center">
-            <span className="text-xs text-gray-500">{message.length}/200</span>
-            <button
-              type="submit"
-              disabled={isSubmitting || !message.trim()}
-            >
-              {isSubmitting ? 'Posting...' : 'Post Message'}
-            </button>
-          </div>
-        </motion.form>
-        )}
-        
-        {!canPost && (
-          <div className="mb-3 p-2 bg-yellow-50 border border-yellow-200 text-center">
-            <p className="text-xs text-yellow-800">
-              ⏰ Next post available in <span className="font-semibold">{timeUntilNextPost}</span>
-            </p>
-          </div>
+            <label className="block">
+              Message
+              <textarea value={message} onChange={(event) => setMessage(event.target.value)}
+                maxLength={200} rows={3} className="mt-1 block w-full resize-y" required />
+            </label>
+            <div className="flex items-center justify-between">
+              <span className="text-slate-600">{message.length}/200</span>
+              <button type="submit" disabled={posting || remaining > 0 || !message.trim()}>
+                {posting ? 'Posting…' : 'Post message'}
+              </button>
+            </div>
+          </form>
         )}
 
-        {/* Messages */}
-        <div className="space-y-2 max-h-[250px] overflow-y-auto scrollbar-thin pr-1">
-          {messages.length === 0 ? (
-            <p className="text-xs text-gray-500 text-center py-4">
-              No messages yet. Be the first to sign the guestbook!
-            </p>
-          ) : (
-            messages.map((msg, index) => (
-              <motion.div
-                key={msg.id}
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: index * 0.03 }}
-                className="bg-white border border-gray-200 p-3 shadow-sm"
-              >
-                <div className="flex justify-between items-center mb-1">
-                  <span className={`text-xs font-bold ${getColorForUser(msg.author)}`}>
-                    {msg.author}
-                  </span>
-                  <span className="text-[10px] text-gray-400" title={new Date(msg.timestamp).toLocaleString()}>
-                    {getRelativeTime(msg.timestamp)}
-                  </span>
+        {loadError ? (
+          <div className="space-y-2 p-3 text-center">
+            <p role="status">The guestbook couldn&apos;t load.</p>
+            <button type="button" onClick={() => {
+              setLoadError(false);
+              void loadMessages();
+            }}>Try again</button>
+          </div>
+        ) : messages === null ? (
+          <p role="status" className="p-3 text-center text-slate-600">Opening the guestbook…</p>
+        ) : messages.length === 0 ? (
+          <p className="border border-dashed border-slate-300 p-4 text-center text-slate-700">
+            {moderation ? 'No signatures yet.' : 'No signatures yet. Leave the first note.'}
+          </p>
+        ) : (
+          <ol className="max-h-72 space-y-2 overflow-y-auto scrollbar-thin pr-1">
+            {messages.map((item) => (
+              <li key={item.id} className="border border-slate-200 bg-white p-3">
+                <div className="mb-1 flex flex-wrap items-baseline justify-between gap-x-2">
+                  <strong className="min-w-0 break-all text-blue-900">{item.author}</strong>
+                  <time className="text-slate-600" dateTime={new Date(item.timestamp).toISOString()}>
+                    {new Date(item.timestamp).toLocaleDateString()}
+                  </time>
                 </div>
-                <p className="text-sm text-gray-800 break-words leading-relaxed">{msg.content}</p>
-                
-                {/* Like button */}
-                <div style={{ display: 'flex', gap: '4px', marginTop: '8px' }}>
-                  <button
-                    onClick={() => handleLike(msg.id)}
-                    disabled={likedMessages.has(msg.id)}
-                    style={{ padding: '2px 6px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
-                  >
-                    <span>{likedMessages.has(msg.id) ? '❤️' : '🤍'}</span>
-                    <span>{msg.likes || 0}</span>
-                  </button>
-                  {isAdmin && (
-                    <button
-                      onClick={() => handleDelete(msg.id)}
-                      style={{ padding: '2px 6px' }}
-                      title="Eliminar mensaje"
-                    >
-                      🗑️
+                <p className="whitespace-pre-wrap break-words text-sm leading-relaxed text-slate-800">{item.content}</p>
+                <div className="mt-2 flex gap-2">
+                  {moderation ? (
+                    <button type="button" disabled={pending} onClick={() => setDeleteId(item.id)}>Delete…</button>
+                  ) : (
+                    <button type="button" disabled={pending || liked.has(item.id)}
+                      onClick={() => likeMessage(item.id)}
+                      aria-label={`${liked.has(item.id) ? 'Liked' : 'Like message'} · ${item.likes} likes`}>
+                      {liked.has(item.id) ? '♥' : '♡'} {item.likes}
                     </button>
                   )}
                 </div>
-              </motion.div>
-            ))
-          )}
-        </div>
+                {deleteId === item.id && (
+                  <form onSubmit={(event) => deleteMessage(event, item.id)}
+                    className="mt-2 space-y-2 border border-red-200 bg-red-50 p-2">
+                    <label className="block">
+                      Moderation key
+                      <input name="secret" type="password" autoComplete="off" required className="mt-1 block w-full" />
+                    </label>
+                    <div className="flex flex-wrap gap-2">
+                      <button type="submit" disabled={pending}>Confirm delete</button>
+                      <button type="button" disabled={pending} onClick={() => setDeleteId(null)}>Cancel</button>
+                    </div>
+                  </form>
+                )}
+              </li>
+            ))}
+          </ol>
+        )}
       </div>
-      
       <div className="status-bar">
-        <p className="status-bar-field">{messages.length} message{messages.length !== 1 ? 's' : ''}</p>
-        <p className="status-bar-field">{isAdmin ? '🔐 Admin mode' : 'Sign the guestbook!'}</p>
+        <p className="status-bar-field">
+          {messages ? `${messages.length} ${messages.length === 1 ? 'signature' : 'signatures'} shown` : 'Guestbook'}
+        </p>
       </div>
-    </motion.div>
+    </section>
   );
 }

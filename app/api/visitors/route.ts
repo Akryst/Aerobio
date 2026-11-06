@@ -1,35 +1,15 @@
 import { NextResponse } from 'next/server';
+import { getClientIp } from '@/lib/client-ip';
 import { prisma } from '@/lib/prisma';
 
 export async function GET(request: Request) {
   try {
-    // Get IP address
-    const forwarded = request.headers.get('x-forwarded-for');
-    const ip = forwarded ? forwarded.split(',')[0] : 'unknown';
-
-    // Check cooldown (30 minutes)
-    const cooldownMs = 30 * 60 * 1000;
-    const now = Date.now();
-    
-    const existingVisit = await prisma.postCooldown.findUnique({
-      where: { ip: `visit_${ip}` },
-    });
-
-    let shouldCount = true;
-    if (existingVisit) {
-      const timeSinceLastVisit = now - Number(existingVisit.lastPostTime);
-      if (timeSinceLastVisit < cooldownMs) {
-        shouldCount = false;
-      }
-    }
-
-    // Count visit if cooldown passed
-    if (shouldCount) {
-      await prisma.postCooldown.upsert({
-        where: { ip: `visit_${ip}` },
-        update: { lastPostTime: now },
-        create: { ip: `visit_${ip}`, lastPostTime: now },
-      });
+    const ip = getClientIp(request);
+    if (ip) {
+      await prisma.$executeRaw`
+        INSERT INTO "PostCooldown" ("ip", "lastPostTime") VALUES (${`visit_${ip}`}, ${Date.now()})
+        ON CONFLICT ("ip") DO NOTHING
+      `;
     }
 
     // Get total unique visitors
@@ -37,6 +17,7 @@ export async function GET(request: Request) {
       where: {
         ip: {
           startsWith: 'visit_',
+          not: 'visit_unknown',
         },
       },
     });

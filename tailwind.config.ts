@@ -1,4 +1,5 @@
 import type { Config } from "tailwindcss";
+import { addDynamicIconSelectors } from "@iconify/tailwind";
 
 const config: Config = {
   content: [
@@ -8,47 +9,8 @@ const config: Config = {
   ],
   theme: {
     extend: {
-      colors: {
-        brand: {
-          50: 'rgb(15, 15, 15)',
-          100: 'rgb(25, 25, 25)',
-          200: 'rgb(35, 35, 35)',
-          300: 'rgb(50, 50, 50)',
-          400: 'rgb(80, 80, 80)',
-          500: 'rgb(120, 120, 120)',
-          600: 'rgb(200, 200, 200)',
-          700: 'rgb(220, 220, 220)',
-          800: 'rgb(240, 240, 240)',
-          900: 'rgb(255, 255, 255)',
-        },
-        neutral: {
-          0: 'rgb(0, 0, 0)',
-          50: 'rgb(10, 10, 10)',
-          100: 'rgb(20, 20, 20)',
-          200: 'rgb(30, 30, 30)',
-          300: 'rgb(50, 50, 50)',
-          400: 'rgb(80, 80, 80)',
-          500: 'rgb(120, 120, 120)',
-          600: 'rgb(160, 160, 160)',
-          700: 'rgb(190, 190, 190)',
-          800: 'rgb(220, 220, 220)',
-          900: 'rgb(240, 240, 240)',
-          950: 'rgb(255, 255, 255)',
-        },
-        success: {
-          50: 'rgb(0, 50, 0)',
-          600: 'rgb(0, 255, 0)',
-          900: 'rgb(200, 255, 200)',
-        },
-        error: {
-          600: 'rgb(255, 85, 85)',
-        },
-        warning: {
-          600: 'rgb(255, 255, 100)',
-        },
-      },
       fontFamily: {
-        sans: ['var(--font-poppins)', 'system-ui', 'sans-serif'],
+        sans: ['Segoe UI', 'system-ui', 'sans-serif'],
         mono: ['JetBrains Mono', 'Consolas', 'Monaco', 'Courier New', 'monospace'],
       },
       borderRadius: {
@@ -66,6 +28,6 @@ const config: Config = {
       },
     },
   },
-  plugins: [],
+  plugins: [addDynamicIconSelectors()],
 };
 export default config;

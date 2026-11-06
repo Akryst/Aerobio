@@ -1,39 +1,26 @@
-'use client';
-
-import { motion } from 'framer-motion';
-import { useState, useEffect } from 'react';
+import WindowTitle from './WindowTitle';
 
 export default function AboutSection() {
   return (
-    <motion.section
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5, delay: 0.2 }}
-      className="window active glass"
-    >
-      <div className="title-bar">
-        <span className="title-bar-text">📋 About Me - Notepad</span>
-        <div className="title-bar-controls">
-          <button aria-label="Minimize"></button>
-          <button aria-label="Maximize"></button>
-          <button aria-label="Close"></button>
+    <section id="about" aria-labelledby="about-title" className="window active glass">
+      <WindowTitle id="about-title" icon="notepad">About · Notepad</WindowTitle>
+      <div className="window-body">
+        <p className="p-2 text-sm leading-relaxed text-slate-800">
+          hey, i&apos;m akryst. this is my little corner of the web, dressed up like a Windows 7
+          desktop. see what i&apos;ve been listening to or leave a note in the guestbook.
+        </p>
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-2 border-t border-slate-300 p-2">
+          <p className="text-sm text-slate-800">want a little corner of your own?</p>
+          <a className="aero-link gap-2" href="https://github.com/Akryst/Aerobio"
+            target="_blank" rel="noopener noreferrer">
+            <span aria-hidden="true" className="icon-[simple-icons--github] text-base" />
+            Clone AeroBio on GitHub
+          </a>
         </div>
       </div>
-      <div className="window-body">
-        <p className="text-sm text-gray-800 leading-relaxed mb-4">
-          add your descrption here, or maybe not, idk. this is just a fun project.
-        </p>
-        
-        <fieldset className="border border-gray-300 p-3 mt-4">
-          <legend className="px-2 text-sm font-semibold text-gray-700">What I&apos;m Into</legend>
-          <p className="text-sm text-gray-700 leading-relaxed">
-            add more of your interests here.
-          </p>
-        </fieldset>
-      </div>
       <div className="status-bar">
-        <p className="status-bar-field">Line 1, Col 1</p>
+        <p className="status-bar-field">about.txt</p>
       </div>
-    </motion.section>
+    </section>
   );
 }

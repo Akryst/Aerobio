@@ -2,7 +2,7 @@ export interface LanyardData {
   discord_user: {
     id: string;
     username: string;
-    avatar: string;
+    avatar: string | null;
     discriminator: string;
     bot: boolean;
     global_name: string | null;
@@ -51,9 +51,4 @@ export interface LanyardData {
   active_on_discord_web: boolean;
   active_on_discord_desktop: boolean;
   active_on_discord_mobile: boolean;
-}
-
-export interface LanyardResponse {
-  success: boolean;
-  data: LanyardData;
 }

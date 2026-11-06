@@ -9,10 +9,7 @@ export async function GET() {
     console.error('Error in API route:', error);
     return NextResponse.json(
       { error: 'Failed to fetch tracks' },
-      { status: 500 }
+      { status: 502 }
     );
   }
 }
-
-export const dynamic = 'force-dynamic';
-export const revalidate = 30;

@@ -1,6 +1,9 @@
-
+import { randomUUID } from 'node:crypto';
 import { NextResponse } from 'next/server';
+import { getClientIp } from '@/lib/client-ip';
 import { prisma } from '@/lib/prisma';
+
+const COOLDOWN_SECONDS = 30 * 60;
 
 export async function GET() {
   try {
@@ -20,61 +23,48 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
+  const body = await request.json().catch(() => null);
+  const content = typeof body?.content === 'string' ? body.content.trim() : '';
+  const author = typeof body?.author === 'string' ? body.author.trim() : '';
+
+  if (!content || content.length > 200) {
+    return NextResponse.json({ error: 'Enter a message between 1 and 200 characters.' }, { status: 400 });
+  }
+  if ((body.author !== undefined && typeof body.author !== 'string') || author.length > 20) {
+    return NextResponse.json({ error: 'Use a nickname of up to 20 characters.' }, { status: 400 });
+  }
+
   try {
-    const body = await request.json();
-    const { author, content } = body;
-
-    if (!content || typeof content !== 'string') {
-      return NextResponse.json({ error: 'Content is required' }, { status: 400 });
-    }
-
-    // Get IP address
-    const forwarded = request.headers.get('x-forwarded-for');
-    const ip = forwarded ? forwarded.split(',')[0] : 'unknown';
-
-    // Check cooldown (30 minutes)
-    const cooldownMs = 30 * 60 * 1000;
+    const ip = getClientIp(request) ?? 'unknown';
     const now = Date.now();
-    
-    const existingCooldown = await prisma.postCooldown.findUnique({
-      where: { ip },
+    const cutoff = now - COOLDOWN_SECONDS * 1000;
+    const result = await prisma.$transaction(async (tx) => {
+      const claimed = await tx.$executeRaw`
+        INSERT INTO "PostCooldown" ("ip", "lastPostTime") VALUES (${ip}, ${now})
+        ON CONFLICT ("ip") DO UPDATE SET "lastPostTime" = excluded."lastPostTime"
+        WHERE "PostCooldown"."lastPostTime" <= ${cutoff}
+      `;
+      if (!claimed) {
+        const cooldown = await tx.postCooldown.findUniqueOrThrow({ where: { ip } });
+        const remaining = COOLDOWN_SECONDS - (Date.now() - Number(cooldown.lastPostTime)) / 1000;
+        return { retryAfter: Math.max(1, Math.ceil(remaining)) };
+      }
+      const message = await tx.message.create({
+        data: { id: randomUUID(), author: author || 'Anonymous', content, timestamp: now },
+      });
+      return { message };
     });
 
-    if (existingCooldown) {
-      const timeSinceLastPost = now - Number(existingCooldown.lastPostTime);
-      if (timeSinceLastPost < cooldownMs) {
-        const remainingMs = cooldownMs - timeSinceLastPost;
-        const minutes = Math.ceil(remainingMs / 60000);
-        return NextResponse.json(
-          { error: `Please wait ${minutes} minute(s) before posting again` },
-          { status: 429 }
-        );
-      }
+    if (!result.message) {
+      return NextResponse.json(
+        { error: 'Please wait before posting again.' },
+        { status: 429, headers: { 'Retry-After': String(result.retryAfter) } }
+      );
     }
-
-    const newMessage = await prisma.message.create({
-      data: {
-        id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
-        author: author || 'Anonymous',
-        content: content.substring(0, 200),
-        timestamp: Date.now(),
-        likes: 0,
-      },
-    });
-
-    // Update cooldown
-    await prisma.postCooldown.upsert({
-      where: { ip },
-      update: { lastPostTime: now },
-      create: { ip, lastPostTime: now },
-    });
-
-    return NextResponse.json({ 
-      success: true, 
-      message: {
-        ...newMessage,
-        timestamp: Number(newMessage.timestamp),
-      }
+    return NextResponse.json({
+      success: true,
+      cooldownSeconds: COOLDOWN_SECONDS,
+      message: { ...result.message, timestamp: Number(result.message.timestamp) },
     });
   } catch (error) {
     console.error('Error posting message:', error);
