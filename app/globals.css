@@ -4,11 +4,21 @@
 
 @layer base {
   body {
+    isolation: isolate;
+    min-height: 100vh;
+    color: #1a1a1a;
+  }
+
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0 auto 0 0;
+    width: 100vw;
+    z-index: -1;
+    pointer-events: none;
     background:
       radial-gradient(ellipse at 18% 0%, #91d8ed 0, transparent 50%),
       linear-gradient(150deg, #17497e 15%, #257ab5 65%, #71b6d7);
-    min-height: 100vh;
-    color: #1a1a1a;
   }
 }
 
